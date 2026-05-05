@@ -312,6 +312,22 @@
   }
   .modal-btn-secondary:active { background: var(--surface-hover); color: var(--text); }
 
+  .modal-btn-exclude {
+    width: 100%;
+    background: transparent;
+    border: 1px solid rgba(220,80,80,0.25);
+    border-radius: 50px; padding: 12px 20px;
+    color: #d07070; font-size: 14px; cursor: pointer;
+    transition: background 0.18s, color 0.18s, border-color 0.18s;
+    -webkit-user-select: none; user-select: none;
+    margin-top: 8px;
+  }
+  .modal-btn-exclude:active { background: rgba(220,80,80,0.12); color: #e08080; }
+  .modal-btn-exclude:disabled {
+    opacity: 0.3; cursor: default;
+    border-color: var(--border); color: var(--text-muted);
+  }
+
   /* ── EDIT VIEW ── */
   .edit-overlay {
     position: fixed; inset: 0; z-index: 100;
@@ -493,6 +509,7 @@
     <div class="modal-divider"></div>
     <button class="modal-btn-primary" id="modalBtnAgain" onclick="modalSpinAgain()">再转一次 🎲</button>
     <button class="modal-btn-secondary" onclick="modalGoHome()">换个转盘 ↩</button>
+    <button class="modal-btn-exclude" id="modalBtnExclude" onclick="modalExcludeThis()">🚫 排除这个，换一个</button>
   </div>
 </div>
 
@@ -614,22 +631,45 @@ let lastResultIndex = -1;
 
 // ══ STATE ══
 let currentSlot = '5min';
-let items = [];
+let savedItems = [];  // 持久层，永远是完整的已保存数组
+let items = [];       // 会话层，可被「排除这个」临时缩减（刷新后从 savedItems 重建）
 let spinning = false;
 let currentAngle = 0;
 let selectedIndex = -1;
 
 // ══ STORAGE ══
-function loadItems(slot) {
+// savedItems = 持久化到 localStorage 的权威数据（编辑操作写这里）
+// items      = 本次会话活跃数组（可被「排除这个」临时缩减，刷新后从 savedItems 恢复）
+const STORAGE_KEYS = {
+  '5min':  'time_killer_5min',
+  '15min': 'time_killer_15min',
+  '30min': 'time_killer_30min',
+  '2hour': 'time_killer_2hour',
+};
+
+function loadSaved(slot) {
+  // 从 localStorage 加载；不存在则用默认值（但不立即写入，等用户首次编辑再持久化）
   try {
-    const raw = localStorage.getItem('time_killer_' + slot);
-    if (raw) return JSON.parse(raw);
+    const raw = localStorage.getItem(STORAGE_KEYS[slot]);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length >= 2) return parsed;
+    }
   } catch(e) {}
   return [...DEFAULTS[slot]];
 }
-function saveItems(slot, data) {
-  try { localStorage.setItem('time_killer_' + slot, JSON.stringify(data)); } catch(e) {}
+
+function savePersistent(slot, data) {
+  try {
+    localStorage.setItem(STORAGE_KEYS[slot], JSON.stringify(data));
+  } catch(e) {
+    showToast('存储失败，请检查浏览器设置 😔');
+  }
 }
+
+// 兼容旧调用
+function loadItems(slot) { return loadSaved(slot); }
+function saveItems(slot, data) { savePersistent(slot, data); }
 
 // ══ 【升级4】Web Audio 音效 ══
 let audioCtx = null;
@@ -868,18 +908,45 @@ function showResult() {
   const emojis = ['🎲','✨','🎯','🌀','🍀','💫'];
   const emoji = emojis[Math.floor(Math.random() * emojis.length)];
 
-  // 填充内容
   document.getElementById('modalEmoji').textContent = emoji;
   document.getElementById('modalResultText').textContent = text;
   document.getElementById('modalQuip').textContent = quip;
 
-  // 按档位设置主按钮渐变色
   const [c1, c2] = SPIN_COLORS[currentSlot];
   document.getElementById('modalBtnAgain').style.background = `linear-gradient(135deg, ${c1}, ${c2})`;
 
-  // 出现动画
+  // 排除按钮：剩余选项 ≤ 2 时禁用
+  const btnEx = document.getElementById('modalBtnExclude');
+  if (items.length <= 2) {
+    btnEx.disabled = true;
+    btnEx.title = '最少保留 2 个选项';
+  } else {
+    btnEx.disabled = false;
+    btnEx.title = '';
+  }
+
   const backdrop = document.getElementById('resultBackdrop');
   backdrop.classList.add('show');
+}
+
+function modalExcludeThis() {
+  if (items.length <= 2) {
+    showToast('最少保留 2 个选项，没得排啦 😅');
+    return;
+  }
+  const excludedItem = items[selectedIndex];
+  // 只从会话层移除，不动持久层 savedItems
+  items.splice(selectedIndex, 1);
+  // lastResultIndex 需要重置，因为 items 数组变了
+  lastResultIndex = -1;
+  selectedIndex = -1;
+  // 重新绘制转盘（扇区数减少）
+  drawWheel(currentAngle, -1);
+  // 关闭弹窗后自动旋转
+  closeModal(() => {
+    if (navigator.vibrate) navigator.vibrate(30);
+    spinWheel();
+  });
 }
 
 // ══ MODAL 控制 ══
@@ -930,7 +997,8 @@ function showEnterLine() {
 // ══ NAV ══
 function openWheel(slot) {
   currentSlot = slot;
-  items = loadItems(slot);
+  savedItems = loadSaved(slot);   // 从持久层读取完整数据
+  items = [...savedItems];         // 会话层从持久层复制，刷新排除状态
   selectedIndex = -1;
   lastResultIndex = -1;
   currentAngle = 0;
@@ -973,47 +1041,55 @@ function closeEdit() {
   const newItems = [];
   inputs.forEach(inp => { const v = inp.value.trim(); if (v) newItems.push(v); });
   if (newItems.length < 2) { showToast('至少需要 2 个选项哦 🌱'); return; }
-  items = newItems;
-  saveItems(currentSlot, items);
+  // 同时更新持久层和会话层（编辑后排除状态重置，以持久数据为准）
+  savedItems = newItems;
+  items = [...savedItems];
+  savePersistent(currentSlot, savedItems);
   document.getElementById('editOverlay').classList.remove('active');
   selectedIndex = -1; lastResultIndex = -1;
   drawWheel(currentAngle, -1);
 }
 
 function renderEditList() {
+  // 编辑面板始终展示持久层数据，不受会话排除影响
+  const editBase = savedItems;
   const list = document.getElementById('editList');
   list.innerHTML = '';
-  items.forEach((item, i) => {
+  editBase.forEach((item, i) => {
     const div = document.createElement('div');
     div.className = 'edit-item';
-    div.innerHTML = `<span class="edit-drag">☰</span><input class="edit-input" type="text" value="${escHtml(item)}" maxlength="15" placeholder="输入内容…"><button class="btn-del" onclick="delItem(${i})" ${items.length <= 2 ? 'disabled' : ''}>✕</button>`;
+    div.innerHTML = `<span class="edit-drag">☰</span><input class="edit-input" type="text" value="${escHtml(item)}" maxlength="15" placeholder="输入内容…"><button class="btn-del" onclick="delItem(${i})" ${editBase.length <= 2 ? 'disabled' : ''}>✕</button>`;
     list.appendChild(div);
   });
   updateEditMeta();
 }
 
 function delItem(i) {
-  if (items.length <= 2) { showToast('最少保留 2 个选项啦 😅'); return; }
-  syncEditInputs(); items.splice(i, 1); renderEditList();
+  syncEditInputs();
+  if (savedItems.length <= 2) { showToast('最少保留 2 个选项啦 😅'); return; }
+  savedItems.splice(i, 1);
+  renderEditList();
 }
 
 function addItem() {
   syncEditInputs();
-  if (items.length >= 8) { showToast('最多 8 个，够多了啦 ✨'); return; }
-  items.push('新选项'); renderEditList();
+  if (savedItems.length >= 8) { showToast('最多 8 个，够多了啦 ✨'); return; }
+  savedItems.push('新选项');
+  renderEditList();
   setTimeout(() => { const inputs = document.querySelectorAll('.edit-input'); const last = inputs[inputs.length-1]; if(last){last.focus();last.select();} }, 50);
 }
 
 function syncEditInputs() {
+  // 把输入框当前内容同步回 savedItems（操作持久层）
   const inputs = document.querySelectorAll('.edit-input');
-  items = Array.from(inputs).map(inp => inp.value.trim() || '…');
+  savedItems = Array.from(inputs).map(inp => inp.value.trim() || '…');
 }
 
 function updateEditMeta() {
-  document.getElementById('editCount').textContent = `${items.length} / 8`;
+  document.getElementById('editCount').textContent = `${savedItems.length} / 8`;
   const btnAdd = document.getElementById('btnAdd');
-  if (btnAdd) btnAdd.disabled = items.length >= 8;
-  document.querySelectorAll('.btn-del').forEach(btn => { btn.disabled = items.length <= 2; });
+  if (btnAdd) btnAdd.disabled = savedItems.length >= 8;
+  document.querySelectorAll('.btn-del').forEach(btn => { btn.disabled = savedItems.length <= 2; });
 }
 
 document.getElementById('editList').addEventListener('input', () => {
