@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a1a2e">
+<title>奇妙转转 · Time Killer</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --bg2: #16213e;
+    --surface: rgba(255,255,255,0.06);
+    --surface-hover: rgba(255,255,255,0.10);
+    --border: rgba(255,255,255,0.10);
+    --text: #e8e0d5;
+    --text-muted: rgba(232,224,213,0.55);
+    --warm: #c4a484;
+    --green: #4a6b5d;
+    --purple: #7b5b8c;
+    --accent: #c4a484;
+    --radius: 20px;
+    --radius-sm: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    overflow-x: hidden;
+  }
+
+  body {
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 20% 0%, rgba(123,91,140,0.18) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 100%, rgba(74,107,93,0.15) 0%, transparent 60%),
+                var(--bg);
+  }
+
+  /* ── STAR BACKGROUND ── */
+  .stars {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden;
+  }
+  .star {
+    position: absolute; border-radius: 50%; background: white;
+    animation: twinkle var(--d, 3s) ease-in-out infinite var(--delay, 0s);
+    opacity: 0;
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: 0; transform: scale(0.8); }
+    50% { opacity: var(--op, 0.6); transform: scale(1); }
+  }
+
+  /* ── FLOATING DECO ── */
+  .deco-corner {
+    position: fixed; font-size: 13px; color: var(--text-muted);
+    pointer-events: none; z-index: 1; user-select: none;
+    animation: floatDeco 6s ease-in-out infinite;
+  }
+  .deco-corner.tl { top: 20px; left: 18px; }
+  .deco-corner.br { bottom: 28px; right: 18px; animation-delay: -3s; }
+  @keyframes floatDeco {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+
+  /* ── VIEWS ── */
+  .view { display: none; flex-direction: column; min-height: 100vh; position: relative; z-index: 2; }
+  .view.active { display: flex; }
+
+  /* ── HOME VIEW ── */
+  .home-header {
+    padding: 60px 28px 28px;
+    text-align: center;
+  }
+  .home-title {
+    font-size: 13px; letter-spacing: 0.25em; color: var(--text-muted);
+    text-transform: uppercase; margin-bottom: 8px;
+  }
+  .home-main-title {
+    font-size: 26px; font-weight: 700; color: var(--warm);
+    letter-spacing: 0.05em; margin-bottom: 6px;
+  }
+  .home-subtitle {
+    font-size: 12px; color: var(--text-muted); letter-spacing: 0.08em;
+  }
+
+  .cards-list {
+    padding: 8px 22px 40px;
+    display: flex; flex-direction: column; gap: 14px;
+    flex: 1;
+  }
+
+  .time-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    display: flex; align-items: center; gap: 18px;
+    cursor: pointer;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    position: relative; overflow: hidden;
+    transition: transform 0.18s, background 0.18s, border-color 0.18s;
+    -webkit-user-select: none; user-select: none;
+  }
+  .time-card::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, var(--card-glow, rgba(196,164,132,0.08)) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .time-card:active { transform: scale(0.97); background: var(--surface-hover); }
+
+  .card-5 { --card-glow: rgba(74,107,93,0.15); }
+  .card-15 { --card-glow: rgba(196,164,132,0.12); }
+  .card-30 { --card-glow: rgba(196,164,132,0.10); }
+  .card-2h { --card-glow: rgba(123,91,140,0.18); }
+
+  .card-icon { font-size: 34px; flex-shrink: 0; }
+  .card-info { flex: 1; }
+  .card-duration {
+    font-size: 20px; font-weight: 700; color: var(--text);
+    line-height: 1; margin-bottom: 6px;
+  }
+  .card-desc {
+    font-size: 12.5px; color: var(--text-muted); line-height: 1.5;
+  }
+  .card-arrow {
+    color: var(--text-muted); font-size: 16px; flex-shrink: 0;
+    transition: transform 0.18s;
+  }
+  .time-card:active .card-arrow { transform: translateX(4px); }
+
+  /* ── WHEEL VIEW ── */
+  .wheel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 56px 20px 16px;
+    flex-shrink: 0;
+  }
+  .btn-back {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 50px; padding: 9px 18px;
+    color: var(--text-muted); font-size: 14px; cursor: pointer;
+    backdrop-filter: blur(12px);
+    transition: background 0.18s, color 0.18s;
+    -webkit-user-select: none; user-select: none;
+  }
+  .btn-back:active { background: var(--surface-hover); color: var(--text); }
+
+  .wheel-title-wrap { text-align: center; }
+  .wheel-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 50px; padding: 6px 14px;
+    font-size: 14px; color: var(--text);
+    backdrop-filter: blur(12px);
+  }
+
+  .btn-edit {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 50px; padding: 9px 18px;
+    color: var(--text-muted); font-size: 14px; cursor: pointer;
+    backdrop-filter: blur(12px);
+    transition: background 0.18s, color 0.18s;
+    -webkit-user-select: none; user-select: none;
+  }
+  .btn-edit:active { background: var(--surface-hover); color: var(--warm); }
+
+  /* Wheel canvas container */
+  .wheel-wrap {
+    display: flex; justify-content: center; align-items: center;
+    padding: 10px 0 0;
+    position: relative; flex-shrink: 0;
+  }
+  .wheel-pointer {
+    position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+    font-size: 24px; z-index: 10;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+    pointer-events: none;
+  }
+  #wheelCanvas {
+    border-radius: 50%;
+    box-shadow: 0 0 40px rgba(0,0,0,0.4), 0 0 0 3px rgba(255,255,255,0.06);
+    touch-action: none;
+  }
+
+  /* ── ENTER LINE ── */
+  .enter-line {
+    text-align: center; font-size: 12px; color: var(--text-muted);
+    font-style: italic; min-height: 20px; padding: 0 28px;
+    transition: opacity 0.5s ease; opacity: 0;
+    flex-shrink: 0; margin-top: 6px;
+    letter-spacing: 0.02em; line-height: 1.5;
+  }
+
+  /* Spin button */
+  .spin-area {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 18px 28px 0; gap: 12px; flex-shrink: 0;
+  }
+  .btn-spin {
+    width: 100%; max-width: 320px;
+    background: linear-gradient(135deg, var(--spin-c1, #c4a484), var(--spin-c2, #7b5b8c));
+    border: none; border-radius: 50px;
+    padding: 17px 36px;
+    color: white; font-size: 18px; font-weight: 700;
+    cursor: pointer; letter-spacing: 0.08em;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    transition: transform 0.15s, opacity 0.15s;
+    -webkit-user-select: none; user-select: none;
+  }
+  .btn-spin:active:not(:disabled) { transform: scale(0.96); }
+  .btn-spin:disabled { opacity: 0.5; cursor: default; }
+
+  .btn-avoid {
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 50px; padding: 8px 18px;
+    color: var(--text-muted); font-size: 12px; cursor: pointer;
+    transition: background 0.15s, color 0.15s, opacity 0.2s;
+    -webkit-user-select: none; user-select: none;
+    letter-spacing: 0.03em;
+  }
+  .btn-avoid:active { background: var(--surface-hover); }
+
+  /* ── RESULT MODAL ── */
+  .result-backdrop {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.70);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 28px;
+    /* 动画由 JS 控制 opacity + pointer-events */
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .result-backdrop.show {
+    opacity: 1; pointer-events: auto;
+  }
+  .result-modal {
+    width: 100%; max-width: 320px;
+    background: linear-gradient(145deg, #221e30 0%, #1e2535 50%, #1a2420 100%);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 32px;
+    padding: 36px 28px 28px;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 0;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(196,164,132,0.08);
+    /* scale 动画由 JS 控制 transform */
+    transform: scale(0.9);
+    transition: transform 0.25s cubic-bezier(0.34, 1.4, 0.64, 1);
+    will-change: transform;
+  }
+  .result-backdrop.show .result-modal {
+    transform: scale(1);
+  }
+  .modal-emoji {
+    font-size: 40px; line-height: 1;
+    margin-bottom: 18px;
+    filter: drop-shadow(0 2px 12px rgba(196,164,132,0.4));
+    animation: floatEmoji 3s ease-in-out infinite;
+  }
+  @keyframes floatEmoji {
+    0%, 100% { transform: translateY(0) rotate(-3deg); }
+    50% { transform: translateY(-5px) rotate(3deg); }
+  }
+  .modal-label {
+    font-size: 10px; letter-spacing: 0.28em; color: var(--text-muted);
+    text-transform: uppercase; margin-bottom: 10px;
+  }
+  .modal-result-text {
+    font-size: 26px; font-weight: 800; color: var(--warm);
+    text-align: center; line-height: 1.25;
+    margin-bottom: 14px;
+    letter-spacing: 0.02em;
+  }
+  .modal-quip {
+    font-size: 12px; color: var(--text-muted); line-height: 1.7;
+    font-style: italic; text-align: center;
+    margin-bottom: 28px;
+    padding: 0 4px;
+  }
+  .modal-divider {
+    width: 100%; height: 1px;
+    background: var(--border);
+    margin-bottom: 20px;
+  }
+  .modal-btn-primary {
+    width: 100%;
+    background: var(--modal-grad, linear-gradient(135deg, #c4a484, #7b5b8c));
+    border: none; border-radius: 50px;
+    padding: 15px 20px;
+    color: white; font-size: 16px; font-weight: 700;
+    cursor: pointer; letter-spacing: 0.06em;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    transition: transform 0.15s, opacity 0.15s;
+    -webkit-user-select: none; user-select: none;
+    margin-bottom: 10px;
+  }
+  .modal-btn-primary:active { transform: scale(0.96); }
+  .modal-btn-secondary {
+    width: 100%;
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 50px; padding: 13px 20px;
+    color: var(--text-muted); font-size: 15px; cursor: pointer;
+    transition: background 0.18s, color 0.18s;
+    -webkit-user-select: none; user-select: none;
+  }
+  .modal-btn-secondary:active { background: var(--surface-hover); color: var(--text); }
+
+  .modal-btn-exclude {
+    width: 100%;
+    background: transparent;
+    border: 1px solid rgba(220,80,80,0.25);
+    border-radius: 50px; padding: 12px 20px;
+    color: #d07070; font-size: 14px; cursor: pointer;
+    transition: background 0.18s, color 0.18s, border-color 0.18s;
+    -webkit-user-select: none; user-select: none;
+    margin-top: 8px;
+  }
+  .modal-btn-exclude:active { background: rgba(220,80,80,0.12); color: #e08080; }
+  .modal-btn-exclude:disabled {
+    opacity: 0.3; cursor: default;
+    border-color: var(--border); color: var(--text-muted);
+  }
+
+  /* ── EDIT VIEW ── */
+  .edit-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(10,10,22,0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    display: none; flex-direction: column;
+    animation: slideUp 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
+  }
+  .edit-overlay.active { display: flex; }
+  @keyframes slideUp {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .edit-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 56px 22px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .edit-title { font-size: 18px; font-weight: 700; }
+  .edit-count { font-size: 12px; color: var(--text-muted); }
+  .btn-done {
+    background: var(--warm); border: none; border-radius: 50px;
+    padding: 10px 20px; color: #1a1a2e; font-size: 14px;
+    font-weight: 700; cursor: pointer;
+    -webkit-user-select: none; user-select: none;
+  }
+  .edit-list {
+    flex: 1; overflow-y: auto; padding: 16px 22px;
+    -webkit-overflow-scrolling: touch;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .edit-item {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+  .edit-drag { color: var(--text-muted); font-size: 16px; cursor: default; flex-shrink: 0; }
+  .edit-input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-size: 16px;
+    font-family: inherit;
+  }
+  .edit-input::placeholder { color: var(--text-muted); }
+  .btn-del {
+    background: rgba(220,80,80,0.12); border: 1px solid rgba(220,80,80,0.2);
+    border-radius: 8px; padding: 6px 10px;
+    color: #e06060; font-size: 16px; cursor: pointer;
+    flex-shrink: 0; line-height: 1;
+    transition: background 0.15s;
+  }
+  .btn-del:active { background: rgba(220,80,80,0.25); }
+  .btn-del:disabled { opacity: 0.3; cursor: default; }
+  .edit-footer {
+    padding: 16px 22px 40px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .btn-add {
+    width: 100%; background: var(--surface);
+    border: 1px dashed rgba(196,164,132,0.3);
+    border-radius: var(--radius-sm); padding: 14px;
+    color: var(--warm); font-size: 15px; cursor: pointer;
+    transition: background 0.15s;
+    -webkit-user-select: none; user-select: none;
+  }
+  .btn-add:active { background: var(--surface-hover); }
+  .btn-add:disabled { opacity: 0.4; cursor: default; }
+  .edit-hint {
+    text-align: center; font-size: 11px; color: var(--text-muted);
+    margin-top: 10px;
+  }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: rgba(40,40,60,0.95); border: 1px solid var(--border);
+    border-radius: 50px; padding: 10px 20px;
+    color: var(--text); font-size: 13px; white-space: nowrap;
+    z-index: 999; pointer-events: none;
+    opacity: 0; transition: opacity 0.2s;
+    backdrop-filter: blur(12px);
+  }
+  .toast.show { opacity: 1; }
+
+  /* Safe area bottom */
+  .safe-bottom { height: env(safe-area-inset-bottom, 20px); flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- Stars -->
+<div class="stars" id="stars"></div>
+
+<!-- Corner decorations -->
+<div class="deco-corner tl">✨ ;</div>
+<div class="deco-corner br">🐾 ;</div>
+
+<!-- ══ HOME VIEW ══ -->
+<div class="view active" id="homeView">
+  <div class="home-header">
+    <div class="home-title">Time Killer</div>
+    <div class="home-main-title">奇妙转转</div>
+    <div class="home-subtitle">for INFJs &amp; everyone who overthinks ✨</div>
+  </div>
+  <div class="cards-list">
+    <div class="time-card card-5" onclick="openWheel('5min')">
+      <div class="card-icon">🌱</div>
+      <div class="card-info">
+        <div class="card-duration">5 分钟</div>
+        <div class="card-desc">够想清楚一件事，或者够忘掉一件事</div>
+      </div>
+      <div class="card-arrow">›</div>
+    </div>
+    <div class="time-card card-15" onclick="openWheel('15min')">
+      <div class="card-icon">📖</div>
+      <div class="card-info">
+        <div class="card-duration">15 分钟</div>
+        <div class="card-desc">不长不短，刚好够发一次呆</div>
+      </div>
+      <div class="card-arrow">›</div>
+    </div>
+    <div class="time-card card-30" onclick="openWheel('30min')">
+      <div class="card-icon">☕</div>
+      <div class="card-info">
+        <div class="card-duration">30 分钟</div>
+        <div class="card-desc">可以认真做一件小事了</div>
+      </div>
+      <div class="card-arrow">›</div>
+    </div>
+    <div class="time-card card-2h" onclick="openWheel('2hour')">
+      <div class="card-icon">🌙</div>
+      <div class="card-info">
+        <div class="card-duration">2 小时</div>
+        <div class="card-desc">嗯，这块时间真的属于你了</div>
+      </div>
+      <div class="card-arrow">›</div>
+    </div>
+  </div>
+  <div class="safe-bottom"></div>
+</div>
+
+<!-- ══ WHEEL VIEW ══ -->
+<div class="view" id="wheelView">
+  <div class="wheel-header">
+    <button class="btn-back" onclick="goHome()">← 返回</button>
+    <div class="wheel-title-wrap">
+      <div class="wheel-badge" id="wheelBadge">🌱 5分钟</div>
+    </div>
+    <button class="btn-edit" id="btnEdit" onclick="openEdit()">✏️ 编辑</button>
+  </div>
+
+  <div class="wheel-wrap">
+    <div class="wheel-pointer">▼</div>
+    <canvas id="wheelCanvas" width="320" height="320"></canvas>
+  </div>
+
+  <!-- 进入旁白 -->
+  <div id="enterLine" class="enter-line"></div>
+
+  <div class="spin-area">
+    <button class="btn-spin" id="btnSpin" onclick="spinWheel()">✨ 旋 转 ✨</button>
+    <button class="btn-avoid" id="btnAvoid" onclick="toggleAvoid()">🚫 排除上次：开</button>
+  </div>
+
+  <div class="safe-bottom"></div>
+</div>
+
+<!-- ══ RESULT MODAL ══ -->
+<div class="result-backdrop" id="resultBackdrop" onclick="handleBackdropClick(event)">
+  <div class="result-modal" id="resultModal">
+    <div class="modal-emoji" id="modalEmoji">🎲</div>
+    <div class="modal-label">去做这件事</div>
+    <div class="modal-result-text" id="modalResultText">—</div>
+    <div class="modal-quip" id="modalQuip"></div>
+    <div class="modal-divider"></div>
+    <button class="modal-btn-primary" id="modalBtnAgain" onclick="modalSpinAgain()">再转一次 🎲</button>
+    <button class="modal-btn-secondary" onclick="modalGoHome()">换个转盘 ↩</button>
+    <button class="modal-btn-exclude" id="modalBtnExclude" onclick="modalExcludeThis()">🚫 排除这个，换一个</button>
+  </div>
+</div>
+
+<!-- ══ EDIT OVERLAY ══ -->
+<div class="edit-overlay" id="editOverlay">
+  <div class="edit-header">
+    <div>
+      <div class="edit-title">编辑选项</div>
+      <div class="edit-count" id="editCount">0 / 8</div>
+    </div>
+    <button class="btn-done" onclick="closeEdit()">完成 ✓</button>
+  </div>
+  <div class="edit-list" id="editList"></div>
+  <div class="edit-footer">
+    <button class="btn-add" id="btnAdd" onclick="addItem()">＋ 添加一个</button>
+    <div class="edit-hint">最少 2 个，最多 8 个选项</div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ DATA ══
+const DEFAULTS = {
+  '5min':  ['深呼吸7次','喝一口温水','看窗外的一棵树','把椅子上的衣服挂起来','记录一个念头','拉伸后颈'],
+  '15min': ['写三行日记','听一首纯音乐','给植物旋转花盆','删除10张截图','发一条仅自己可见的动态','做个手部按摩'],
+  '30min': ['煮一个简单的汤','看一集《日常》','整理桌面右侧区域','给一个人发"突然想到你"','泡澡/泡脚','抄一段曾经打动你的话'],
+  '2hour': ['看一部华语独立电影','整理一个记忆文件夹','尝试一个新菜谱','画一幅不需要给别人看的画','写一封不寄出的信','清理一个App的收藏夹'],
+};
+
+const BADGES = { '5min':'🌱 5分钟', '15min':'📖 15分钟', '30min':'☕ 30分钟', '2hour':'🌙 2小时' };
+
+const SPIN_COLORS = {
+  '5min':  ['#c4a484','#4a6b5d'],
+  '15min': ['#c4a484','#8a7060'],
+  '30min': ['#b8926a','#7b5b8c'],
+  '2hour': ['#7b5b8c','#4a4a8a'],
+};
+
+const PALETTES = {
+  '5min':  ['#4a6b5d','#5e8370','#3d5a4f','#6a8f7a','#2e4a3e','#7aab93','#3a604f','#527a6a'],
+  '15min': ['#7a6348','#9a7d5e','#c4a484','#b09070','#8a6e52','#d4b494','#6a5338','#aa8464'],
+  '30min': ['#6b5a7a','#8a7290','#7b5b8c','#9c7aaa','#5a4a68','#aa8aaa','#4e3e60','#8a6a90'],
+  '2hour': ['#4a4a8a','#5a5aaa','#6a5a9a','#3a3a70','#7a6aaa','#5a4a8a','#4a5a9a','#6a4a8a'],
+};
+
+// ══ 【升级1】按档位独立语气库 ══
+const SLOT_QUIPS = {
+  // 5分钟：轻快短促，像小猫踩你一下
+  '5min': [
+    "（快，趁还没后悔。）",
+    "（五分钟后你会感谢自己。）",
+    "（喵。去做。）",
+    "（比你想的容易。）",
+    "（不许再刷手机了。）",
+    "（就这一件，其余的等一下。）",
+    "（动。）",
+    "（五分钟，真的够了。）",
+    "（嗯，就是这个。）",
+    "（这是命令，以爱的名义。）",
+  ],
+  // 15分钟：温柔，像躺草地上看云
+  '15min': [
+    "（时间刚刚好，像一首短歌。）",
+    "（不用做完，做了就好。）",
+    "（慢慢的，没关系。）",
+    "（这一刻只属于你和这件事。）",
+    "（云在走，你也在走。）",
+    "（温柔地开始，就算成功了一半。）",
+    "（别计时，感受就好。）",
+    "（如果心跑远了，轻轻拉回来。）",
+    "（十五分钟，一点都不短。）",
+    "（你值得这十五分钟。）",
+  ],
+  // 30分钟：微微认真，像朋友拍你肩膀
+  '30min': [
+    "（认真的，这次可以做完。）",
+    "（朋友说：去啊，你可以的。）",
+    "（半小时，够做一件真实的事。）",
+    "（不用完美，做了比没做强。）",
+    "（来，我陪你开始。）",
+    "（这件事等你很久了。）",
+    "（做完之后你会想拍自己肩膀。）",
+    "（别想太多，先动手。）",
+    "（三十分钟，你已经赢了一半。）",
+    "（认真对待这半小时。）",
+  ],
+  // 2小时：沉静，像深夜的日记
+  '2hour': [
+    "（今夜的时间，只属于你。）",
+    "（慢下来，世界不会因此散掉。）",
+    "（有些事，只有在这样的夜里才做得成。）",
+    "（不用跟任何人解释这两小时。）",
+    "（深一点，做这件事。）",
+    "（这是今天最后也是最好的礼物。）",
+    "（两小时，足够回到自己。）",
+    "（灯光调暗一点，开始吧。）",
+    "（静静地，认真地，为自己。）",
+    "（你本来就需要这段时间。）",
+  ],
+};
+
+// ══ 【升级2】进入转盘时的随机旁白 ══
+const ENTER_LINES = [
+  "加载中……顺便想一下你今天原谅了自己几次。",
+  "等一下。（其实不用等，你随时可以反悔。）",
+  "转盘正在假装思考。",
+  "正在从宇宙随机抽取一件小事……",
+  "稍等，转盘在整理它的情绪。",
+  "加载中。你上次真的做了转盘的结果吗？",
+  "别看了，加载很快的。或者很慢。谁知道呢。",
+  "命运齿轮：启动中……",
+];
+
+// ══ 【升级3】"再转排除上次"开关状态 ══
+let avoidLastResult = true; // 默认开启
+let lastResultIndex = -1;
+
+// ══ STATE ══
+let currentSlot = '5min';
+let savedItems = [];  // 持久层，永远是完整的已保存数组
+let items = [];       // 会话层，可被「排除这个」临时缩减（刷新后从 savedItems 重建）
+let spinning = false;
+let currentAngle = 0;
+let selectedIndex = -1;
+
+// ══ STORAGE ══
+// savedItems = 持久化到 localStorage 的权威数据（编辑操作写这里）
+// items      = 本次会话活跃数组（可被「排除这个」临时缩减，刷新后从 savedItems 恢复）
+const STORAGE_KEYS = {
+  '5min':  'time_killer_5min',
+  '15min': 'time_killer_15min',
+  '30min': 'time_killer_30min',
+  '2hour': 'time_killer_2hour',
+};
+
+function loadSaved(slot) {
+  // 从 localStorage 加载；不存在则用默认值（但不立即写入，等用户首次编辑再持久化）
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS[slot]);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length >= 2) return parsed;
+    }
+  } catch(e) {}
+  return [...DEFAULTS[slot]];
+}
+
+function savePersistent(slot, data) {
+  try {
+    localStorage.setItem(STORAGE_KEYS[slot], JSON.stringify(data));
+  } catch(e) {
+    showToast('存储失败，请检查浏览器设置 😔');
+  }
+}
+
+// 兼容旧调用
+function loadItems(slot) { return loadSaved(slot); }
+function saveItems(slot, data) { savePersistent(slot, data); }
+
+// ══ 【升级4】Web Audio 音效 ══
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+  }
+  return audioCtx;
+}
+
+function playTick() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  try {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.06);
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.09);
+  } catch(e) {}
+}
+
+function playDing() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  try {
+    // 主音 - 叮
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1047, ctx.currentTime);
+    gain.gain.setValueAtTime(0.22, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.65);
+    // 泛音
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(1568, ctx.currentTime);
+    gain2.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc2.start(ctx.currentTime);
+    osc2.stop(ctx.currentTime + 0.45);
+  } catch(e) {}
+}
+
+// ══ STARS ══
+function initStars() {
+  const container = document.getElementById('stars');
+  for (let i = 0; i < 55; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() * 2 + 0.8;
+    s.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*100}%;width:${size}px;height:${size}px;--d:${(Math.random()*4+2).toFixed(1)}s;--delay:-${(Math.random()*8).toFixed(1)}s;--op:${(Math.random()*0.5+0.2).toFixed(2)};`;
+    container.appendChild(s);
+  }
+}
+
+// ══ CANVAS WHEEL ══
+const canvas = document.getElementById('wheelCanvas');
+const ctx2d = canvas.getContext('2d');
+const SIZE = 320;
+const CX = SIZE / 2, CY = SIZE / 2, R = SIZE / 2 - 6;
+
+function drawWheel(angle, highlightIdx) {
+  ctx2d.clearRect(0, 0, SIZE, SIZE);
+  const n = items.length;
+  const arc = (Math.PI * 2) / n;
+  const palette = PALETTES[currentSlot];
+
+  for (let i = 0; i < n; i++) {
+    const start = angle + i * arc - Math.PI / 2;
+    const end = start + arc;
+    const col = palette[i % palette.length];
+
+    ctx2d.beginPath();
+    ctx2d.moveTo(CX, CY);
+    ctx2d.arc(CX, CY, R, start, end);
+    ctx2d.closePath();
+
+    if (i === highlightIdx) {
+      ctx2d.fillStyle = lighten(col, 0.3);
+      ctx2d.shadowColor = lighten(col, 0.5);
+      ctx2d.shadowBlur = 18;
+    } else {
+      ctx2d.fillStyle = col;
+      ctx2d.shadowBlur = 0;
+    }
+    ctx2d.fill();
+    ctx2d.shadowBlur = 0;
+
+    ctx2d.strokeStyle = 'rgba(255,255,255,0.10)';
+    ctx2d.lineWidth = 1.2;
+    ctx2d.stroke();
+
+    ctx2d.save();
+    ctx2d.translate(CX, CY);
+    ctx2d.rotate(start + arc / 2);
+    ctx2d.translate(R * 0.62, 0);
+
+    const label = items[i];
+    ctx2d.fillStyle = i === highlightIdx ? '#ffffff' : 'rgba(255,255,255,0.88)';
+    ctx2d.textAlign = 'center';
+    ctx2d.textBaseline = 'middle';
+    if (label.length > 4) {
+      const half = Math.ceil(label.length / 2);
+      ctx2d.font = `11px -apple-system, PingFang SC, sans-serif`;
+      ctx2d.fillText(label.slice(0, half), 0, -7);
+      ctx2d.fillText(label.slice(half), 0, 7);
+    } else {
+      ctx2d.font = `14px -apple-system, PingFang SC, sans-serif`;
+      ctx2d.fillText(label, 0, 0);
+    }
+    ctx2d.restore();
+  }
+
+  // Center
+  const grad = ctx2d.createRadialGradient(CX, CY, 0, CX, CY, 22);
+  grad.addColorStop(0, '#2a2a4a');
+  grad.addColorStop(1, '#1a1a2e');
+  ctx2d.beginPath();
+  ctx2d.arc(CX, CY, 20, 0, Math.PI * 2);
+  ctx2d.fillStyle = grad;
+  ctx2d.fill();
+  ctx2d.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx2d.lineWidth = 1.5;
+  ctx2d.stroke();
+  ctx2d.beginPath();
+  ctx2d.arc(CX, CY, 5, 0, Math.PI * 2);
+  ctx2d.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx2d.fill();
+}
+
+function lighten(hex, amount) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `rgba(${Math.min(255,r+Math.round(amount*120))},${Math.min(255,g+Math.round(amount*100))},${Math.min(255,b+Math.round(amount*120))},1)`;
+}
+
+function getSelectedIndex(angle) {
+  const n = items.length;
+  const arc = (Math.PI * 2) / n;
+  let a = ((-angle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+  return Math.floor(a / arc) % n;
+}
+
+// ══ SPIN ══
+let lastTickIdx = -1; // for tick sound per segment crossing
+
+function spinWheel() {
+  if (spinning) return;
+  // 解锁 AudioContext（需要用户手势触发）
+  getAudioCtx();
+
+  spinning = true;
+  document.getElementById('btnSpin').disabled = true;
+  lastTickIdx = -1;
+
+  const n = items.length;
+  // 【升级2】如果开启排除上次，计算目标扇区
+  let targetAngle;
+  if (avoidLastResult && lastResultIndex >= 0 && n > 1) {
+    // 随机选一个不同于上次的扇区
+    let candidates = [];
+    for (let i = 0; i < n; i++) { if (i !== lastResultIndex) candidates.push(i); }
+    const targetIdx = candidates[Math.floor(Math.random() * candidates.length)];
+    // 计算旋转到该扇区正中所需的角度
+    const arc = (Math.PI * 2) / n;
+    const extraSpins = (5 + Math.floor(Math.random() * 4)) * Math.PI * 2;
+    // 扇区中心 angle offset = targetIdx * arc + arc/2
+    // getSelectedIndex(angle) = floor((-angle % 2PI + 2PI) % 2PI / arc)
+    // 要让 angle 落到 targetIdx 扇区中心: -angle = targetIdx*arc + arc/2 + k*2PI
+    // angle = -(targetIdx*arc + arc/2) + k*2PI, 取大于 currentAngle 的
+    const offset = -(targetIdx * arc + arc / 2 * (0.3 + Math.random() * 0.4));
+    let base = offset;
+    while (base < currentAngle + extraSpins) base += Math.PI * 2;
+    targetAngle = base;
+  } else {
+    const extraSpins = (5 + Math.floor(Math.random() * 4)) * Math.PI * 2;
+    targetAngle = currentAngle + extraSpins + Math.random() * Math.PI * 2;
+  }
+
+  const totalDelta = targetAngle - currentAngle;
+  const duration = 3500 + Math.random() * 800;
+  const startAngle = currentAngle;
+  const startTime = performance.now();
+  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+  function frame(now) {
+    const elapsed = now - startTime;
+    const t = Math.min(elapsed / duration, 1);
+    const eased = easeOutCubic(t);
+    currentAngle = startAngle + totalDelta * eased;
+    drawWheel(currentAngle, -1);
+
+    // 【升级4】每越过一个扇区边界播放 tick
+    const curIdx = getSelectedIndex(currentAngle);
+    if (curIdx !== lastTickIdx && t < 0.95) {
+      // 速度越慢tick越稀，用 eased 进度控制
+      const speed = 1 - t;
+      if (speed > 0.08 || lastTickIdx === -1) playTick();
+      lastTickIdx = curIdx;
+    }
+
+    if (t < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      currentAngle = targetAngle;
+      selectedIndex = getSelectedIndex(currentAngle);
+      lastResultIndex = selectedIndex;
+      drawWheel(currentAngle, selectedIndex);
+      spinning = false;
+      document.getElementById('btnSpin').disabled = false;
+      playDing();
+      if (navigator.vibrate) navigator.vibrate([30, 30, 60]);
+      showResult();
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+function showResult() {
+  const text = items[selectedIndex] || '—';
+  const quips = SLOT_QUIPS[currentSlot];
+  const quip = quips[Math.floor(Math.random() * quips.length)];
+  const emojis = ['🎲','✨','🎯','🌀','🍀','💫'];
+  const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+
+  document.getElementById('modalEmoji').textContent = emoji;
+  document.getElementById('modalResultText').textContent = text;
+  document.getElementById('modalQuip').textContent = quip;
+
+  const [c1, c2] = SPIN_COLORS[currentSlot];
+  document.getElementById('modalBtnAgain').style.background = `linear-gradient(135deg, ${c1}, ${c2})`;
+
+  // 排除按钮：剩余选项 ≤ 2 时禁用
+  const btnEx = document.getElementById('modalBtnExclude');
+  if (items.length <= 2) {
+    btnEx.disabled = true;
+    btnEx.title = '最少保留 2 个选项';
+  } else {
+    btnEx.disabled = false;
+    btnEx.title = '';
+  }
+
+  const backdrop = document.getElementById('resultBackdrop');
+  backdrop.classList.add('show');
+}
+
+function modalExcludeThis() {
+  if (items.length <= 2) {
+    showToast('最少保留 2 个选项，没得排啦 😅');
+    return;
+  }
+  const excludedItem = items[selectedIndex];
+  // 只从会话层移除，不动持久层 savedItems
+  items.splice(selectedIndex, 1);
+  // lastResultIndex 需要重置，因为 items 数组变了
+  lastResultIndex = -1;
+  selectedIndex = -1;
+  // 重新绘制转盘（扇区数减少）
+  drawWheel(currentAngle, -1);
+  // 关闭弹窗后自动旋转
+  closeModal(() => {
+    if (navigator.vibrate) navigator.vibrate(30);
+    spinWheel();
+  });
+}
+
+// ══ MODAL 控制 ══
+function closeModal(callback) {
+  const backdrop = document.getElementById('resultBackdrop');
+  const modal = document.getElementById('resultModal');
+  // 消失动画：scale 0.95 + opacity 0，持续 0.2s
+  modal.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
+  modal.style.transform = 'scale(0.95)';
+  modal.style.opacity = '0';
+  backdrop.style.transition = 'opacity 0.2s ease';
+  backdrop.style.opacity = '0';
+  setTimeout(() => {
+    backdrop.classList.remove('show');
+    // 恢复样式，供下次打开
+    modal.style.transition = '';
+    modal.style.transform = '';
+    modal.style.opacity = '';
+    backdrop.style.transition = '';
+    backdrop.style.opacity = '';
+    if (callback) callback();
+  }, 210);
+}
+
+function handleBackdropClick(e) {
+  // 只响应点击背景本身，不响应 modal 内部
+  if (e.target === document.getElementById('resultBackdrop')) {
+    closeModal(null);
+  }
+}
+
+function modalSpinAgain() {
+  closeModal(() => spinWheel());
+}
+
+function modalGoHome() {
+  closeModal(() => goHome());
+}
+function showEnterLine() {
+  const line = ENTER_LINES[Math.floor(Math.random() * ENTER_LINES.length)];
+  const el = document.getElementById('enterLine');
+  if (!el) return;
+  el.textContent = line;
+  el.style.opacity = '1';
+  setTimeout(() => { el.style.opacity = '0'; }, 2200);
+}
+
+// ══ NAV ══
+function openWheel(slot) {
+  currentSlot = slot;
+  savedItems = loadSaved(slot);   // 从持久层读取完整数据
+  items = [...savedItems];         // 会话层从持久层复制，刷新排除状态
+  selectedIndex = -1;
+  lastResultIndex = -1;
+  currentAngle = 0;
+
+  document.getElementById('wheelBadge').textContent = BADGES[slot];
+  const [c1, c2] = SPIN_COLORS[slot];
+  document.getElementById('btnSpin').style.background = `linear-gradient(135deg, ${c1}, ${c2})`;
+
+  updateAvoidToggle();
+
+  document.getElementById('homeView').classList.remove('active');
+  document.getElementById('wheelView').classList.add('active');
+
+  showEnterLine();
+  setTimeout(() => drawWheel(currentAngle, -1), 30);
+}
+
+function goHome() {
+  document.getElementById('wheelView').classList.remove('active');
+  document.getElementById('homeView').classList.add('active');
+}
+
+// ══ 【升级3】排除上次结果开关 ══
+function toggleAvoid() {
+  avoidLastResult = !avoidLastResult;
+  updateAvoidToggle();
+}
+function updateAvoidToggle() {
+  const btn = document.getElementById('btnAvoid');
+  if (!btn) return;
+  btn.textContent = avoidLastResult ? '🚫 排除上次：开' : '🔄 排除上次：关';
+  btn.style.opacity = avoidLastResult ? '1' : '0.5';
+}
+
+// ══ EDIT ══
+function openEdit() { renderEditList(); document.getElementById('editOverlay').classList.add('active'); }
+
+function closeEdit() {
+  const inputs = document.querySelectorAll('.edit-input');
+  const newItems = [];
+  inputs.forEach(inp => { const v = inp.value.trim(); if (v) newItems.push(v); });
+  if (newItems.length < 2) { showToast('至少需要 2 个选项哦 🌱'); return; }
+  // 同时更新持久层和会话层（编辑后排除状态重置，以持久数据为准）
+  savedItems = newItems;
+  items = [...savedItems];
+  savePersistent(currentSlot, savedItems);
+  document.getElementById('editOverlay').classList.remove('active');
+  selectedIndex = -1; lastResultIndex = -1;
+  drawWheel(currentAngle, -1);
+}
+
+function renderEditList() {
+  // 编辑面板始终展示持久层数据，不受会话排除影响
+  const editBase = savedItems;
+  const list = document.getElementById('editList');
+  list.innerHTML = '';
+  editBase.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'edit-item';
+    div.innerHTML = `<span class="edit-drag">☰</span><input class="edit-input" type="text" value="${escHtml(item)}" maxlength="15" placeholder="输入内容…"><button class="btn-del" onclick="delItem(${i})" ${editBase.length <= 2 ? 'disabled' : ''}>✕</button>`;
+    list.appendChild(div);
+  });
+  updateEditMeta();
+}
+
+function delItem(i) {
+  syncEditInputs();
+  if (savedItems.length <= 2) { showToast('最少保留 2 个选项啦 😅'); return; }
+  savedItems.splice(i, 1);
+  renderEditList();
+}
+
+function addItem() {
+  syncEditInputs();
+  if (savedItems.length >= 8) { showToast('最多 8 个，够多了啦 ✨'); return; }
+  savedItems.push('新选项');
+  renderEditList();
+  setTimeout(() => { const inputs = document.querySelectorAll('.edit-input'); const last = inputs[inputs.length-1]; if(last){last.focus();last.select();} }, 50);
+}
+
+function syncEditInputs() {
+  // 把输入框当前内容同步回 savedItems（操作持久层）
+  const inputs = document.querySelectorAll('.edit-input');
+  savedItems = Array.from(inputs).map(inp => inp.value.trim() || '…');
+}
+
+function updateEditMeta() {
+  document.getElementById('editCount').textContent = `${savedItems.length} / 8`;
+  const btnAdd = document.getElementById('btnAdd');
+  if (btnAdd) btnAdd.disabled = savedItems.length >= 8;
+  document.querySelectorAll('.btn-del').forEach(btn => { btn.disabled = savedItems.length <= 2; });
+}
+
+document.getElementById('editList').addEventListener('input', () => {
+  const inputs = document.querySelectorAll('.edit-input');
+  document.getElementById('editCount').textContent = `${inputs.length} / 8`;
+});
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ══ TOAST ══
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ══ INIT ══
+initStars();
+drawWheel(0, -1);
+</script>
+</body>
+</html>
